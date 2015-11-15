@@ -1,25 +1,102 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+
+#Programming Assignment no. 1 - Reproducible Research
+
+Author: Maciek
+
+##Loading and preprocessing the data
+
+Code below reads data - each column as indicated class
+
+```{r read data, echo=TRUE}
+setwd("C:/Users/Maciek/Desktop/ReprResearch/repdata_data_activity")
+classes = c('integer','Date','factor')
+data<-read.csv('activity.csv',colClasses = classes)
+```
+
+##What is mean total number of steps taken per day?
+
+code below, ignoring the missing values, calculates total number of steps taken
+each day, plots histogram and calculates mean and median of total number
+of steps taken each day
+
+```{r analyze data,echo=TRUE}
+data.complete<-data[complete.cases(data),]
+steps_bydate<-aggregate(data.complete$steps,by=list(group_by_date=data.complete$date),FUN=sum)
+print('The data aggegated on a daily basis is presented below')
+steps_bydate
+hist(steps_bydate$x,main='Histogram of steps taken each day',xlab='steps taken each day',breaks=4,col='green')
+mean<-mean(steps_bydate$x)
+median<-median(steps_bydate$x)
+print(paste0("Average number of steps per day: ", mean))
+print(paste0("Median number of steps per day: ", median))
+```
+
+##What is the average daily activity pattern?
+
+```{r daily pattern,echo=TRUE}
+suppressWarnings(library(dplyr))
+suppressWarnings(library(ggplot2))
+data_table<-tbl_df(data) #uses data table from dplyr for ease 
+#of data manipulation
+#sorts levels of intervasls ni ascending order
+levels<-levels(data_table$interval)
+levels<-as.numeric(levels)
+levels<-sort(levels)
+levels<-as.character(levels)
+
+#assigning new levels of factors in ascending order
+data_table$interval <- factor(data_table$interval, levels = levels)
+
+by_interval<-group_by(data_table,interval)
+avg_steps<-summarise(by_interval,avg_steps=mean(steps,na.rm=TRUE))
+
+#plotting the data
+ggplot(avg_steps, aes(x=as.integer(as.character(interval)),y=avg_steps))+geom_line(aes(group=1),colour="red")+labs(title='Average number of steps taken in each interval',x='Interval',y='Average number of steps')
 
 
-## Loading and preprocessing the data
+#finding interval with maximum number of steps
+
+results = filter(avg_steps,avg_steps==max(avg_steps))
+print('Below is maximum average number of steps and interval')
+results
+```
+
+##Imputing missing values
+
+```{r imputing missing values,echo=TRUE}
+missing.values=dim(data)[1]-dim(data.complete)[1]
+print(paste0("Total number of missing values: ", missing.values))
+#imputing missing values - using average for interval
+merged<-inner_join(data_table,avg_steps) 
+merged[is.na(merged$steps),1]<-as.integer(merged[is.na(merged$steps),4]$avg_steps)
+sum(is.na(merged$steps))#check if there are no NAs
+#analyzing imputed data set
+steps_bydate2<-aggregate(merged$steps,by=list(group_by_date=merged$date),FUN=sum)
+print('The data aggegated on a daily basis is presented below')
+steps_bydate2
+hist(steps_bydate2$x,main='Histogram of steps taken each day',xlab='steps taken each day',breaks=4,col='red')
+mean2<-mean(steps_bydate2$x)
+median2<-median(steps_bydate2$x)
+print(paste0("Average number of steps per day: ", mean2))
+print(paste0("Median number of steps per day: ", median2))
+```
+
+##Are there differences in activity patterns between weekdays and weekends?
+
+```{r differences in activity patterns between weekdays and weekends,echo=TRUE}
+#Adding new column for weekdays and for weekends
+merged<-mutate(merged,day_flag=weekdays(merged$date))
+weekday<-unique(merged$day_flag)[1:5]
+weekend<-unique(merged$day_flag)[6:7]
+merged<-mutate(merged,weekend_flag=ifelse(merged$day_flag %in% weekday, 'weekday', 'weekend'))
+
+#Preparing data for panel plot
+grouped<-group_by(merged,weekend_flag,interval)
+final<-summarise(grouped,average_steps=mean(steps))
+
+#Making panel plot
+suppressWarnings(library(lattice))
+xyplot(average_steps~as.integer(as.character(interval))|weekend_flag, type="l", data=final, col="red",main="Panel plot of average number of steps in each interval",xlab= "interval",ylab="average number of steps")
+```
 
 
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
